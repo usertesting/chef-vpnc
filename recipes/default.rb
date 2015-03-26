@@ -33,15 +33,36 @@ if vpnc_pass.start_with?('base64:')
 end
 
 unless node['vpnc']['compile_time']
-  package 'vpnc'
+  case node['platform_family']
+  when 'debian'
+    package 'vpnc'
+  when 'rhel'
+    package 'libgcrypt'
+    # rubocop:disable Metrics/LineLength
+    case node['platform_version'].split('.').first
+    when '6'
+      remote_file "#{Chef::Config[:file_cache_path]}/vpnc-0.5.3-4.el6.x86_64.rpm" do
+        source 'http://dl.fedoraproject.org/pub/epel/6/x86_64/vpnc-0.5.3-4.el6.x86_64.rpm'
+        checksum '22e009099b6c587ed9440e1190699cc7a1baa27f84ba9f2999d864bd7b74b1ba'
+      end
+      rpm_package "#{Chef::Config[:file_cache_path]}/vpnc-0.5.3-4.el6.x86_64.rpm"
+    when '5'
+      remote_file "#{Chef::Config[:file_cache_path]}/vpnc-0.5.3-8.el5.x86_64.rpm" do
+        source 'http://dl.fedoraproject.org/pub/epel/5/x86_64/vpnc-0.5.3-8.el5.x86_64.rpm'
+        checksum '050987d54f6f88d39b925d59822b20bbf540bfaa0dab767382c8411e62d0a423'
+      end
+      rpm_package "#{Chef::Config[:file_cache_path]}/vpnc-0.5.3-8.el5.x86_64.rpm"
+    end
+    # rubocop:enable Metrics/LineLength
+  end
 
   template '/etc/vpnc/default.conf' do
     sensitive true
     variables vpnc_ipsec_gateway: vpnc_ipsec_gateway,
-	      vpnc_ipsec_id: vpnc_ipsec_id,
-	      vpnc_ipsec_sec: vpnc_ipsec_sec,
-	      vpnc_user: vpnc_user,
-	      vpnc_pass: vpnc_pass
+              vpnc_ipsec_id: vpnc_ipsec_id,
+              vpnc_ipsec_sec: vpnc_ipsec_sec,
+              vpnc_user: vpnc_user,
+              vpnc_pass: vpnc_pass
     source 'vpncdefault.conf.erb'
     mode 0600
     if node['vpnc']['run_as_service'] && File.exist?('/etc/init/vpnc.conf')
@@ -49,7 +70,11 @@ unless node['vpnc']['compile_time']
     end
   end
 
-  if node['vpnc']['run_as_service']
+  if node['vpnc']['run_as_service'] &&
+     (
+       (node['platform'] == 'ubuntu') ||
+       node['platform_version'].split('.').first == '6'
+     )
     # Keep vpn always running
     # End it with `vpnc-disconnect`
     template '/etc/init/vpnc.conf' do
@@ -60,6 +85,9 @@ unless node['vpnc']['compile_time']
     service 'vpnc' do
       action :start
     end
+  elsif node['vpnc']['run_as_service']
+    # TODO: add EL 5 init script
+    execute 'vpnc'
   end
 else
   # Support legacy cookbooks with vpn network resources needed at compile time.
@@ -67,25 +95,58 @@ else
   log 'vpnc_compile_deprecated' do
     message 'Deploying vpnc at compile time is deprecated and will likely be dropped when Chef 13 support is added'
     level :warn
-  end
-
-  package 'vpnc' do
     action :nothing
-  end.run_action(:install)
+  end.run_action(:write)
+
+  case node['platform_family']
+  when 'debian'
+    package 'vpnc' do
+      action :nothing
+    end.run_action(:install)
+  when 'rhel'
+    package 'libgcrypt' do
+      action :nothing
+    end.run_action(:install)
+    # rubocop:disable Metrics/LineLength
+    case node['platform_version'].split('.').first
+    when '6'
+      remote_file "#{Chef::Config[:file_cache_path]}/vpnc-0.5.3-4.el6.x86_64.rpm" do
+        source 'http://dl.fedoraproject.org/pub/epel/6/x86_64/vpnc-0.5.3-4.el6.x86_64.rpm'
+        checksum '22e009099b6c587ed9440e1190699cc7a1baa27f84ba9f2999d864bd7b74b1ba'
+        action :nothing
+      end.run_action(:create)
+      rpm_package "#{Chef::Config[:file_cache_path]}/vpnc-0.5.3-4.el6.x86_64.rpm" do
+        action :nothing
+      end.run_action(:install)
+    when '5'
+      remote_file "#{Chef::Config[:file_cache_path]}/vpnc-0.5.3-8.el5.x86_64.rpm" do
+        source 'http://dl.fedoraproject.org/pub/epel/5/x86_64/vpnc-0.5.3-8.el5.x86_64.rpm'
+        checksum '050987d54f6f88d39b925d59822b20bbf540bfaa0dab767382c8411e62d0a423'
+      end.run_action(:create)
+      rpm_package "#{Chef::Config[:file_cache_path]}/vpnc-0.5.3-8.el5.x86_64.rpm" do
+        action :nothing
+      end.run_action(:install)
+    end
+    # rubocop:enable Metrics/LineLength
+  end
 
   template '/etc/vpnc/default.conf' do
     sensitive true
     variables vpnc_ipsec_gateway: vpnc_ipsec_gateway,
-	      vpnc_ipsec_id: vpnc_ipsec_id,
-	      vpnc_ipsec_sec: vpnc_ipsec_sec,
-	      vpnc_user: vpnc_user,
-	      vpnc_pass: vpnc_pass
+              vpnc_ipsec_id: vpnc_ipsec_id,
+              vpnc_ipsec_sec: vpnc_ipsec_sec,
+              vpnc_user: vpnc_user,
+              vpnc_pass: vpnc_pass
     source 'vpncdefault.conf.erb'
     mode 0600
     action :nothing
   end.run_action(:create)
 
-  if node['vpnc']['run_as_service']
+  if node['vpnc']['run_as_service'] &&
+     (
+       (node['platform'] == 'ubuntu') ||
+       node['platform_version'].split('.').first == '6'
+     )
     # Keep vpn always running
     # End it with `vpnc-disconnect`
     template '/etc/init/vpnc.conf' do
@@ -97,5 +158,10 @@ else
     service 'vpnc' do
       action :nothing
     end.run_action(:start)
+  elsif node['vpnc']['run_as_service']
+    # TODO: add EL 5 init script
+    execute 'vpnc' do
+      action :nothing
+    end.run_action(:run)
   end
 end

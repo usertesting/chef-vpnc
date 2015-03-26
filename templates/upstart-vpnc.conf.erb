@@ -2,7 +2,7 @@ start on (started networking)
 
 stop on starting shutdown
 
-exec /usr/sbin/vpnc-connect --no-detach
+exec /usr/sbin/vpnc<%= '-connect' if node['platform_family'] == 'debian' %> --no-detach
 
 # Restart the process if it dies with a signal
 # or exit code not given by the 'normal exit' stanza.
