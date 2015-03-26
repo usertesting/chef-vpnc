@@ -22,3 +22,5 @@ require 'base64'
 puts "base64:#{Base64.encode64('imsosecret5').chomp}"
 # base64:aW1zb3NlY3JldHk1
 ```
+
+- `node['vpnc']['compile_time']` - Should vpnc be deployed at compile time? Defaults to `false`
