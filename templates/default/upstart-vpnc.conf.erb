@@ -1,11 +1,12 @@
-start on (started networking)
+# /etc/init/vpnc.conf - VPN concentrator for Cisco IPSec
 
-stop on starting shutdown
+description "VPN concentrator for Cisco IPSec"
+start on runlevel [2345]
+stop on runlevel [016]
 
-console output
-
-exec /usr/sbin/vpnc<%= '-connect' if node['platform_family'] == 'debian' %> --no-detach --pid-file /var/run/vpnc/pid --ifmode tun --non-inter --local-port 0 --dpd-idle 0
-
-# Restart the process if it dies with a signal
-# or exit code not given by the 'normal exit' stanza.
 respawn
+respawn limit unlimited
+
+script
+  exec /usr/sbin/vpnc<%= '-connect' if node['platform_family'] == 'debian' %> --no-detach --pid-file /var/run/vpnc/pid --non-inter --dpd-idle 0
+end script
